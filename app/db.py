@@ -81,3 +81,17 @@ def save_message(
             """,
             (ticket_id, gmail_message_id, direction, from_address, body),
         )
+
+
+def list_sections() -> list[str]:
+    with connect() as conn:
+        rows = conn.execute("select distinct section from knowledge_base order by section").fetchall()
+        return [row["section"] for row in rows]
+
+
+def get_section(section: str) -> list[dict]:
+    with connect() as conn:
+        return conn.execute(
+            "select title, content from knowledge_base where section = %s order by id",
+            (section,),
+        ).fetchall()
