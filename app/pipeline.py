@@ -2,17 +2,20 @@ import logging
 from email.utils import parseaddr
 
 from app import db
-from app.gmail import PROCESSED_LABEL, Gmail, get_body, get_headers
+from app.ai.decide import decide
+from app.gmail import (
+    ESCALATED_LABEL,
+    PROCESSED_LABEL,
+    Gmail,
+    format_thread,
+    get_body,
+    get_headers,
+    has_attachments,
+)
 from app.guards import skip_reason
 
 logger = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
-
-ACKNOWLEDGEMENT = """Hi,
-
-Thanks for your email. We received your message and will get back to you soon.
-
-Harbor & Pine support"""
 
 
 def handle_message(gmail: Gmail, message_id: str) -> None:
@@ -44,7 +47,18 @@ def process(gmail: Gmail, message_id: str) -> tuple[str, dict]:
     ticket_id = db.upsert_ticket(message["threadId"], sender, headers.get("subject", ""))
     db.save_message(ticket_id, message_id, "in", sender, get_body(message))
 
-    sent = gmail.send_reply(message, ACKNOWLEDGEMENT)
-    db.save_message(ticket_id, sent["id"], "out", gmail.address, ACKNOWLEDGEMENT)
-    db.update_ticket(ticket_id, "answered")
-    return "processed", {"action": "acknowledged"}
+    thread = gmail.get_thread(message["threadId"])
+    if gmail.is_escalated(thread):
+        # A colleague owns this thread until they remove the needs-human label.
+        return "skipped", {"reason": "thread is escalated"}
+
+    decision = decide(format_thread(thread, gmail.address), has_attachments(message))
+
+    sent = gmail.send_reply(message, decision.reply)
+    db.save_message(ticket_id, sent["id"], "out", gmail.address, decision.reply)
+    if decision.action == "escalate":
+        gmail.add_label(message_id, ESCALATED_LABEL)
+        db.update_ticket(ticket_id, "escalated", decision.section, decision.proposed_action)
+    else:
+        db.update_ticket(ticket_id, "answered", decision.section)
+    return "processed", decision.model_dump()
