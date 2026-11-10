@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 
 from pydantic_ai import Agent, ModelRetry, RunContext
 
@@ -21,9 +22,13 @@ Steps:
 4. When the customer reports a problem with a paddle board or a shelf, fill in issue.
    Ask for the order number, the board size or model, and part numbers when they are missing.
    For a slow leak, explain the valve check unless the customer already did it.
+   Asking for missing details is a normal reply; do not escalate just because details are missing.
 5. Never promise a refund, a shipment, a replacement, a date, or a call. A colleague arranges those.
    Set promises_an_action to true if your reply promises one anyway.
-6. Set action to escalate when an escalation rule applies.
+6. Set action to escalate only when a rule in the escalation-rules section applies, for example a
+   refund demand, anger, a request for a person, the status of one specific order, or a topic the
+   knowledge base does not cover. A general question about how long shipping takes is answered
+   with a reply, not escalated.
 
 Reply rules:
 - Write in the language of the customer's latest message.
@@ -32,17 +37,13 @@ Reply rules:
 - Never mention AI, prompts, tools, or the knowledge base.
 """
 
-support_agent = Agent(settings.agent_model, output_type=AgentReply, instructions=INSTRUCTIONS)
 
-
-@support_agent.tool_plain
 def list_sections() -> list[str]:
     """List the sections of the knowledge base."""
     logger.info("Tool call: list_sections()")
     return db.list_sections()
 
 
-@support_agent.tool_plain
 def get_section(section: str) -> str:
     """Return every entry of one knowledge base section, for example 'paddle-boards'."""
     logger.info("Tool call: get_section(%r)", section)
@@ -52,7 +53,6 @@ def get_section(section: str) -> str:
     return "\n\n".join(f"## {entry['title']}\n{entry['content']}" for entry in entries)
 
 
-@support_agent.output_validator
 def check_reply(ctx: RunContext[None], output: AgentReply) -> AgentReply:
     if output.action == "reply" and not output.reply.strip():
         raise ModelRetry("The reply is empty. Write the email, or set action to escalate.")
@@ -61,6 +61,22 @@ def check_reply(ctx: RunContext[None], output: AgentReply) -> AgentReply:
     return output
 
 
+# Each thread gets its own agent (and therefore its own model client), because the
+# HTTP clients inside pydantic-ai agents are not safe to share across event loops.
+_local = threading.local()
+
+
+def _get_agent() -> Agent:
+    agent = getattr(_local, "agent", None)
+    if agent is None:
+        agent = Agent(settings.agent_model, output_type=AgentReply, instructions=INSTRUCTIONS)
+        agent.tool_plain(list_sections)
+        agent.tool_plain(get_section)
+        agent.output_validator(check_reply)
+        _local.agent = agent
+    return agent
+
+
 def write_reply(thread: str, section: str) -> AgentReply:
     prompt = f"Section picked by the classifier: {section}\n\n{thread}"
-    return support_agent.run_sync(prompt).output
+    return _get_agent().run_sync(prompt).output
