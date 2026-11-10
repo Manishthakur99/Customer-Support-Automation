@@ -1,11 +1,27 @@
 from dataclasses import dataclass
+import time
 
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import Evaluator, EvaluatorContext
+from pydantic_ai.exceptions import (
+    ModelConnectionError,
+    ModelOverloadedError,
+    ModelRateLimitError,
+    ModelServerError,
+    ModelTimeoutError,
+)
 
 from app.ai.decide import decide
 from app.ai.schemas import Decision
 from evals.golden_emails import GOLDEN_EMAILS
+
+RETRYABLE_ERRORS = (
+    ModelConnectionError,
+    ModelOverloadedError,
+    ModelRateLimitError,
+    ModelServerError,
+    ModelTimeoutError,
+)
 
 
 @dataclass
@@ -21,7 +37,14 @@ class ActionMatches(Evaluator):
 
 
 def run_pipeline(email: str) -> Decision:
-    return decide(email)
+    for attempt in range(5):
+        try:
+            return decide(email)
+        except RETRYABLE_ERRORS:
+            if attempt == 4:
+                raise
+            time.sleep(2 ** attempt * 2)
+    raise RuntimeError("unreachable")
 
 
 dataset = Dataset(
@@ -38,5 +61,5 @@ dataset = Dataset(
 )
 
 if __name__ == "__main__":
-    report = dataset.evaluate_sync(run_pipeline, max_concurrency=4)
+    report = dataset.evaluate_sync(run_pipeline, max_concurrency=2)
     report.print(include_input=False, include_output=True, include_durations=False)
