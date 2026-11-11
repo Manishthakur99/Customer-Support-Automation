@@ -1,6 +1,6 @@
-# AI Care — Harbor & Pine Customer Support Agent
+# AI Care — AI Customer Support Agent
 
-An AI-powered email support system for **Harbor & Pine**, a home and outdoor store that sells on Amazon. It polls a Gmail inbox, triages every incoming customer email with a classifier model, drafts answers with a writer model, and then lets **deterministic Python rules** make the final call on whether to reply automatically or escalate to a human. A web dashboard gives the support team visibility into events, tickets, and the editable knowledge base.
+An AI-powered email support system for a **home and outdoor store** that sells on Amazon. It polls a Gmail inbox, triages every incoming customer email with a classifier model, drafts answers with a writer model, and then lets **deterministic Python rules** make the final call on whether to reply automatically or escalate to a human. A web dashboard gives the support team visibility into events, tickets, and the editable knowledge base.
 
 > **Core principle:** the models *propose*, the code *decides*. Every reply is checked against hard rules before it is allowed to go out.
 
