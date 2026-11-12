@@ -20,11 +20,12 @@
 
 ## Table of Contents
 1. [Executive Summary & Motivation](#executive-summary--motivation)
-2. [High-Level System Architecture](#high-level-system-architecture)
+2. [Key Features](#key-features)
+3. [High-Level System Architecture](#high-level-system-architecture)
    - [Architectural Topology](#architectural-topology)
    - [Request Lifecycle & Data Flow Sequence](#request-lifecycle--data-flow-sequence)
    - [Trust Boundary Definitions](#trust-boundary-definitions)
-3. [Deep-Dive Component Design](#deep-dive-component-design)
+4. [Deep-Dive Component Design](#deep-dive-component-design)
    - [1. Gmail Integration & Thread Rendering](#1-gmail-integration--thread-rendering)
    - [2. Pre-Flight Guards](#2-pre-flight-guards)
    - [3. Triage Classifier](#3-triage-classifier)
@@ -33,16 +34,17 @@
    - [6. Pipeline Orchestration & Idempotent Event Tracking](#6-pipeline-orchestration--idempotent-event-tracking)
    - [7. Orchestration API](#7-orchestration-api)
    - [8. Support Dashboard](#8-support-dashboard)
-4. [Database Schema & Data Pipeline](#database-schema--data-pipeline)
+5. [Database Schema & Data Pipeline](#database-schema--data-pipeline)
    - [Relational Data Model](#relational-data-model)
    - [Data Pipeline Scripts](#data-pipeline-scripts)
-5. [API Specification & Contracts](#api-specification--contracts)
-6. [Getting Started & Local Installation](#getting-started--local-installation)
-7. [Operational Runbook](#operational-runbook)
-8. [Safety, Security & Policy Matrix](#safety-security--policy-matrix)
-9. [Project Directory Layout](#project-directory-layout)
-10. [Troubleshooting & FAQ](#troubleshooting--faq)
-11. [License & Acknowledgments](#license--acknowledgments)
+6. [API Specification & Contracts](#api-specification--contracts)
+7. [Getting Started & Local Installation](#getting-started--local-installation)
+8. [Operational Runbook](#operational-runbook)
+9. [Safety, Security & Policy Matrix](#safety-security--policy-matrix)
+10. [Project Directory Layout](#project-directory-layout)
+11. [Troubleshooting & FAQ](#troubleshooting--faq)
+12. [License & Acknowledgments](#license--acknowledgments)
+13. [Author & Maintainer](#author--maintainer)
 
 ---
 
@@ -61,6 +63,20 @@ Wiring a generative model directly to a customer-facing inbox introduces a **Sup
 - **Grounded Authoring**: A tool-calling writer agent is allowed to answer *only* from an editable knowledge base, never from parametric memory.
 - **Hard-Coded Adjudication**: A pure-Python decision layer vetoes the model's reply and escalates whenever a physical action, missing information, or an unauthorized promise is detected.
 - **Idempotent Audit Trail**: Every message is claimed via a unique-keyed `events` row, guaranteeing at-most-once processing and a full audit log.
+
+---
+
+## Key Features
+
+| Capability | Description |
+|---|---|
+| 🔍 **Auto-triage** | Classifies every inbound email into a fixed section with `needs_human` detection. |
+| 📚 **Grounded answers** | The writer agent may respond *only* from the knowledge base — never from parametric memory. |
+| ⚖️ **Deterministic veto** | A hard-coded Python judge escalates rather than letting the model promise refunds, shipments, or dates. |
+| 🧱 **Idempotent pipeline** | Unique-keyed `events` rows guarantee at-most-once processing and a complete audit trail. |
+| 🛡️ **Security-first** | Prompt-injection defense, self-identification guard, and Basic-auth dashboard. |
+| 📊 **Live dashboard** | React admin for events, tickets, and in-place knowledge-base editing. |
+| 🐳 **One-command deploy** | `docker compose up --build` runs the API and poller together. |
 
 ---
 
@@ -483,6 +499,23 @@ GET /health HTTP/1.1
 
 ## Getting Started & Local Installation
 
+### Quick Start (Docker)
+
+The fastest path to a running stack:
+
+```bash
+# 1. Configure environment
+cp .env.example .env   # fill in real values
+
+# 2. Seed the knowledge base once (from the host)
+uv run python scripts/seed_knowledge_base.py
+
+# 3. Launch API + poller
+#    API at http://127.0.0.1:8080
+#    Poller runs continuously in the background
+docker compose up --build
+```
+
 ### Prerequisites
 - **Python**: `3.13+`
 - **Package manager**: [uv](https://docs.astral.sh/uv/)
@@ -683,10 +716,15 @@ This project is licensed under the **MIT License**.
 
 ## Author & Maintainer
 
-**Manish Thakur**
-- GitHub: [@Manishthakur99](https://github.com/Manishthakur99)
-- Email: [thakurify@gmail.com](mailto:thakurify@gmail.com)
-- Project Repository: [Customer-Support-Automation](https://github.com/Manishthakur99/Customer-Support-Automation)
+**Manish Thakur** — original author and maintainer of AI Care.
+
+| Channel | Link |
+|---|---|
+| GitHub | [@Manishthakur99](https://github.com/Manishthakur99) |
+| Email | [thakurify@gmail.com](mailto:thakurify@gmail.com) |
+| Repository | [Customer-Support-Automation](https://github.com/Manishthakur99/Customer-Support-Automation) |
+
+Contributions, bug reports, and feature requests are welcome — open an issue or pull request on the repository above.
 
 ---
 *Built with 🛡️ for safe, grounded, and auditable AI customer support.*
